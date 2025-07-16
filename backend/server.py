@@ -1,7 +1,8 @@
-from flask import Flask, Response, request, abort, send_file
-import os
-import mimetypes
 from pathlib import Path
+import random
+import json
+import mimetypes
+from flask import Flask, Response, request, abort, send_file, jsonify
 from flask_cors import CORS
 
 
@@ -12,9 +13,23 @@ BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
 VIDEO_DIR = PROJECT_ROOT / "sample_videos"
 
-print("Base Directory:", BASE_DIR)
-print("Project Root:", PROJECT_ROOT)
-print("Video Directory:", VIDEO_DIR)
+METADATA_DIR = PROJECT_ROOT / "metadata"
+METADATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _build_tree(dir_path: Path):
+    """dir_path 以下を {id,name,type,children[]} 形式で返す"""
+    node = {
+        "id": str(dir_path.relative_to(VIDEO_DIR)),
+        "label": dir_path.name,
+        "itemType": "directory" if dir_path.is_dir() else "file",
+    }
+    if dir_path.is_dir():
+        node["children"] = [
+            _build_tree(p) for p in sorted(dir_path.iterdir(), key=lambda x: x.name)
+            if not p.name.startswith(".")          # 隠しファイル除外など
+        ]
+    return node
 
 
 @app.route('/')
@@ -22,25 +37,73 @@ def home():
     return "Welcome to the Flask server!"
 
 
+@app.get("/api/build-tree")
+def build_tree():
+    tree = [_build_tree(VIDEO_DIR)]
+    with open((METADATA_DIR / "tree.json"), 'w', encoding="UTF-8") as f:
+        json.dump(tree, f, indent=2)
+    return jsonify(tree)
+
+
+@app.get("/api/tree")
+def get_tree():
+    if not (METADATA_DIR / "tree.json").exists():
+        build_tree()
+    try:
+        with open((METADATA_DIR / "tree.json"), 'r', encoding="UTF-8") as f:
+            tree = json.load(f)
+        return jsonify(tree)
+    except FileNotFoundError:
+        abort(404, description="Tree metadata not found.")
+
+
 @app.route('/api/videos')
 def list_videos():
-    print("Listing videos in directory:", VIDEO_DIR)
+    directory = request.args.get("directory")
     try:
-        video_files = [f.name for f in Path(
-            VIDEO_DIR).iterdir() if f.suffix in ['.mp4', '.webm', '.avi']]
-        print(video_files)
-        return {"videos": video_files}
+        video_files = [str(f.relative_to(VIDEO_DIR)) for f in Path(
+            (VIDEO_DIR / directory)).iterdir() if f.suffix in ['.mp4', '.webm', '.avi']]
+        random.shuffle(video_files)
+        return video_files
     except FileNotFoundError:
         abort(404, description="Video directory not found.")
 
 
+@app.route("/api/video/metadata/<path:filename>")
+def get_video_metadata(filename):
+    metadata_file = METADATA_DIR / f"{filename}.json"
+    if not metadata_file.exists():
+        abort(404, description="Metadata file not found.")
+    try:
+        with open(metadata_file, 'r', encoding="UTF-8") as f:
+            metadata = json.load(f)
+        return jsonify(metadata)
+    except json.JSONDecodeError:
+        abort(500, description="Error decoding metadata JSON.")
+
+
+@app.route("/api/video/metadata/<path:filename>", methods=["POST"])
+def create_video_metadata(filename):
+    metadata = request.json
+    metadata_file = METADATA_DIR / f"{filename}.json"
+
+    metadata_file.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with open(metadata_file, 'w', encoding="UTF-8") as f:
+            json.dump(metadata, f, indent=2)
+        return jsonify({"status": "success", "message": "Metadata created"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/api/video/<path:filename>")
 def video_stream(filename):
-    path = os.path.join(VIDEO_DIR, filename)
-    if not os.path.exists(path):
+    path = VIDEO_DIR / filename
+    if not path.exists():
         abort(404)
 
-    file_size = os.path.getsize(path)
+    file_size = path.stat().st_size
     range_header = request.headers.get("Range", None)
 
     if range_header:
