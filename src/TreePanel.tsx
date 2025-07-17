@@ -1,11 +1,11 @@
 import { TreeItem } from "@mui/x-tree-view/TreeItem";
-import { useGetTreeQuery, useLazyGetVideosQuery } from "./services/api";
+import { useGetFavoritesQuery, useGetTreeQuery, useLazyGetVideosQuery } from "./services/api";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 
 import { useTreeItem } from "@mui/x-tree-view/useTreeItem";
 import { TreeItemProps } from "@mui/x-tree-view/TreeItem";
 import { forwardRef, useCallback } from "react";
-import { IconButton, Stack, Typography } from "@mui/material";
+import { Button, IconButton, Stack, Typography } from "@mui/material";
 import { RichTreeView } from "@mui/x-tree-view";
 import { useAppDispatch } from "./app/hooks";
 import { setCurrentVideo, setVideos } from "./app/uiSlice";
@@ -44,6 +44,8 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(
   const dispatch = useAppDispatch();
   const [getVideos] = useLazyGetVideosQuery();
 
+
+
   const handleSelectFile = useCallback(
     (path: string) => {
       dispatch(setCurrentVideo(path));
@@ -64,6 +66,8 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(
     },
     [dispatch, getVideos]
   );
+
+
 
   const handleClick = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -92,11 +96,35 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(
 
 export default function TreePanel() {
   const { data, isLoading } = useGetTreeQuery();
+  const {data: favorites} = useGetFavoritesQuery();
+  const dispatch = useAppDispatch();
+
+  console.log("Favorites:", favorites);
+  const handleSelectFavorites = useCallback(() => {
+    if (favorites && favorites.length > 0) {
+      dispatch(setVideos(favorites));
+      dispatch(setCurrentVideo(favorites[0]));
+    } else {
+      console.warn("No favorites available");
+    }
+  }, [dispatch, favorites]);
+
   if (!data) return null;
 
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  return <RichTreeView items={data} slots={{ item: CustomTreeItem }} />;
+  return (<>
+  <Button variant="contained" onClick={handleSelectFavorites}>
+    Load Favorites
+  </Button>
+  <RichTreeView sx={{
+    width: "100%",
+    height: 500,
+    overflow: "auto",
+    flexGrow: 1,
+    flexShrink: 0,
+  }} items={data} slots={{ item: CustomTreeItem }} />
+  </>);
 }

@@ -8,7 +8,7 @@ export const baseUrl = "/api/";
 export const apiSlice = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({ baseUrl: baseUrl }),
-  tagTypes: ["Tree"],
+  tagTypes: ["Tree", "Favorites", "Metadata"],
   endpoints: (builder) => ({
     getTree: builder.query<TreeViewBaseItem<TreeItemType>[], void>({
       query: () => "tree",
@@ -29,6 +29,14 @@ export const apiSlice = createApi({
         body: { A: A, B: B }, // Default values for A and B),
       }),
     }),
+    getFavorites: builder.query<string[], void>({
+      query: () => `favorites`,
+      providesTags: [{ type: "Favorites", id: "LIST" }],
+    }),
+    toggleFavorites: builder.mutation<void, string>({
+      query: (id) => `favorites/${id}`,
+      invalidatesTags: [{ type: "Favorites", id: "LIST" }],
+    }),
   }),
 });
 
@@ -36,5 +44,7 @@ export const {
   useGetTreeQuery,
   useLazyGetVideosQuery,
   useGetMetadataQuery,
+  useGetFavoritesQuery,
+  useToggleFavoritesMutation,
   useCreateMetadataMutation,
 } = apiSlice;

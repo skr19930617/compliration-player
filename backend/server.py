@@ -11,7 +11,7 @@ CORS(app)
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
-VIDEO_DIR = PROJECT_ROOT / "sample_videos"
+VIDEO_DIR = Path("/media/yuki/DATA/skr/movie/")  # Change this to your video directory
 
 METADATA_DIR = PROJECT_ROOT / "metadata"
 METADATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -68,7 +68,39 @@ def list_videos():
     except FileNotFoundError:
         abort(404, description="Video directory not found.")
 
+@app.route('/api/favorites')
+def list_favorites():
+    favorites_file = METADATA_DIR / "favorites.json"
+    if not favorites_file.exists():
+        with open(favorites_file, 'w', encoding="UTF-8") as f:
+            json.dump([], f, indent=2)
+        return jsonify([])
+    try:
+        with open(favorites_file, 'r', encoding="UTF-8") as f:
+            favorites = json.load(f)
+        return jsonify(sorted(favorites))
+    except json.JSONDecodeError:
+        abort(500, description="Error decoding favorites JSON.")
 
+@app.route('/api/favorites/<path:filename>')
+def toggle_favorites(filename):
+    favorites_file = METADATA_DIR / "favorites.json"
+    if not favorites_file.exists():
+        with open(favorites_file, 'w', encoding="UTF-8") as f:
+            json.dump([], f, indent=2)
+    try:
+        with open(favorites_file, 'r', encoding="UTF-8") as f:
+            favorites = json.load(f)
+        if filename not in favorites:
+            favorites.append(filename)
+        else:
+            favorites.remove(filename)
+        with open(favorites_file, 'w', encoding="UTF-8") as f:
+            json.dump(favorites, f, indent=2)
+        return jsonify(favorites)
+    except json.JSONDecodeError:
+        abort(500, description="Error decoding favorites JSON.")
+        
 @app.route("/api/video/metadata/<path:filename>")
 def get_video_metadata(filename):
     metadata_file = METADATA_DIR / f"{filename}.json"
