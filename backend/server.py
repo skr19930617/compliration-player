@@ -2,11 +2,15 @@ from pathlib import Path
 import random
 import json
 import mimetypes
-from flask import Flask, Response, request, abort, send_file, jsonify
+from flask import Flask, Response, request, abort, send_file, jsonify, render_template
+from flask import current_app as app
 from flask_cors import CORS
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent / "dist" / "assets"),
+            template_folder=str(Path(__file__).resolve().parent.parent / "dist"))
+print(f"Static folder: {app.static_folder}")
+print(f"Template folder: {app.template_folder}")
 CORS(app)
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -34,7 +38,7 @@ def _build_tree(dir_path: Path):
 
 @app.route('/')
 def home():
-    return "Welcome to the Flask server!"
+    return render_template('index.html')
 
 
 @app.get("/api/build-tree")
