@@ -26,7 +26,7 @@ import { IconButton } from "@mui/material";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import Favorite from "@mui/icons-material/Favorite";
-// import MovingIcon from "@mui/icons-material/Moving";
+import MovingIcon from "@mui/icons-material/Moving";
 
 export default function VideoPlayer() {
   const dispatch = useAppDispatch();
@@ -35,6 +35,7 @@ export default function VideoPlayer() {
   const playerRef = useRef<HTMLVideoElement | null>(null);
 
   const finishRef = useRef(false);
+  const finishTimeRef = useRef<number | undefined>(undefined);
   const currentTimeRef = useRef<number>(0);
 
   // const { data: videoMeta } = useGetMetadataQuery(currentVideo || "", {
@@ -47,6 +48,7 @@ export default function VideoPlayer() {
 
   const [A, setA] = useState<number>();
   const [B, setB] = useState<number>();
+  const [finish, setFinish] = useState<boolean>(false);
 
   useEffect(() => {
     setA(undefined);
@@ -54,44 +56,24 @@ export default function VideoPlayer() {
   }, [currentVideo]);
 
   useEffect(() => {
-    console.log("Creating metadata for current video:", currentVideo, A, B);
     if (currentVideo && A !== undefined && B !== undefined) {
       createMetadata({ id: currentVideo, A: A.toString(), B: B.toString() });
     }
   }, [currentVideo, A, B, createMetadata]);
 
-  useEffect(() => {
-    console.log("Setting current time to A:", A);
-    if (!playerRef.current || !A) return;
-    playerRef.current.currentTime = A;
-  }, [A]);
-
-  useEffect(() => {
-    const video = playerRef.current;
-    console.log("Setting video current time to A:", A);
-    if (video && A !== undefined) {
-      video.currentTime = A;
-    }
-  }, [A, currentVideo]);
-
   const handleTimeUpdate = useCallback(() => {
     const player = playerRef.current;
     if (!player) return;
 
-    if (finishRef.current && player.currentTime >= currentTimeRef.current) {
-      player.currentTime = currentTimeRef.current - 1;
+    if (
+      finishTimeRef.current !== undefined &&
+      player.currentTime > finishTimeRef.current
+    ) {
+      player.currentTime = player.currentTime - 1;
       return;
     }
     currentTimeRef.current = player.currentTime;
-
-    if (B && player.currentTime >= B) {
-      dispatch(
-        setCurrentVideo(
-          videos[(videos.indexOf(currentVideo || "") + 1) % videos.length]
-        )
-      );
-    }
-  }, [dispatch, currentVideo, videos, B]);
+  }, []);
 
   const handleEnd = useCallback(() => {
     if (videos.length === 0) return;
@@ -127,15 +109,18 @@ export default function VideoPlayer() {
     }
   }, [currentVideo, toggleFavorites]);
 
-  // const toggleA = () => {
-  //   const current = currentTimeRef.current;
-  //   setA((prev) => (prev !== undefined ? undefined : current));
-  // };
-
-  // const toggleB = () => {
-  //   const current = currentTimeRef.current;
-  //   setB((prev) => (prev !== undefined ? undefined : current));
-  // };
+  const handleFinish = useCallback(() => {
+    if (!playerRef.current) return;
+    finishRef.current = !finishRef.current;
+    setFinish(finishRef.current);
+    if (finishRef.current) {
+      finishTimeRef.current = playerRef.current.currentTime;
+      console.log("Finish time set to:", finishTimeRef.current);
+    } else {
+      finishTimeRef.current = undefined;
+      console.log("Finish time cleared");
+    }
+  }, []);
 
   if (!currentVideo) {
     return <div>Select a video to play</div>;
@@ -179,13 +164,9 @@ export default function VideoPlayer() {
             }
           ></Favorite>
         </IconButton>
-        {/* <IconButton
-          onClick={() => {
-            finishRef.current = !finishRef.current;
-          }}
-        >
-          <MovingIcon color={finishRef.current ? "primary" : "inherit"} />
-        </IconButton> */}
+        <IconButton onClick={handleFinish}>
+          <MovingIcon color={finish ? "primary" : "inherit"} />
+        </IconButton>
         {/* 
         <MediaSeekBackwardButton seekOffset={0} onClick={toggleA}>
           <span slot="icon" style={{ color: A !== undefined ? "red" : "" }}>
