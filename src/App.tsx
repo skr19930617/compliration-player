@@ -18,15 +18,15 @@ function App() {
 
   return (
     <Box sx={{ width: "100%", height: "100vh" }} overflow={"hidden"}>
-        <Grid container spacing={2} padding={2}>
-          <Grid size={4} height={"100%"}>
-            <TreePanel></TreePanel>
-          </Grid>
-
-          <Grid size={8} height={"100%"}>
-            <VideoPlayer></VideoPlayer>
-          </Grid>
+      <Grid container spacing={2} padding={2}>
+        <Grid size={2} height={"100%"}>
+          <TreePanel></TreePanel>
         </Grid>
+
+        <Grid size={10} height={"100%"}>
+          <VideoPlayer></VideoPlayer>
+        </Grid>
+      </Grid>
     </Box>
   );
 }

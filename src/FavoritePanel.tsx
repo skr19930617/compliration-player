@@ -1,15 +1,14 @@
 import { TreeItem } from "@mui/x-tree-view/TreeItem";
-import { useGetTreeQuery, useLazyGetVideosQuery } from "./services/api";
+import { useGetFavoritesQuery, useLazyGetVideosQuery } from "./services/api";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 
 import { useTreeItem } from "@mui/x-tree-view/useTreeItem";
 import { TreeItemProps } from "@mui/x-tree-view/TreeItem";
-import { forwardRef, useCallback } from "react";
-import { IconButton, Stack, Typography } from "@mui/material";
+import { forwardRef, useCallback, useMemo } from "react";
+import { Button, IconButton, Stack, Typography } from "@mui/material";
 import { RichTreeView } from "@mui/x-tree-view";
 import { useAppDispatch } from "./app/hooks";
 import { setCurrentVideo, setVideos } from "./app/uiSlice";
-import FavoritePanel from "./FavoritePanel";
 
 interface CustomLabelProps {
   children: string;
@@ -18,7 +17,6 @@ interface CustomLabelProps {
 }
 
 function CustomLabel({ children, itemType, handleClick }: CustomLabelProps) {
-  console.log("CustomLabel rendered with itemType:", itemType);
   return (
     <Stack
       direction="row"
@@ -47,7 +45,7 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(
   const item = publicAPI.getItem(props.itemId);
 
   const dispatch = useAppDispatch();
-  const [getVideos] = useLazyGetVideosQuery();
+  const { data: favorites } = useGetFavoritesQuery();
 
   const handleSelectFile = useCallback(
     (path: string) => {
@@ -57,19 +55,9 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(
     [dispatch]
   );
 
-  const handleSelectDir = useCallback(
-    (path: string) => {
-      getVideos(path)
-        .unwrap()
-        .then((videos) => {
-          dispatch(setVideos(videos));
-        })
-        .catch((error) => {
-          console.error("Failed to fetch videos:", error);
-        });
-    },
-    [dispatch, getVideos]
-  );
+  const handleSelectDir = useCallback(() => {
+    dispatch(setVideos(favorites || []));
+  }, [dispatch]);
 
   const handleClick = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -78,7 +66,7 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(
     if (item.itemType === "file") {
       handleSelectFile(item.id);
     } else if (item.itemType === "directory") {
-      handleSelectDir(item.id);
+      handleSelectDir();
     }
   };
 
@@ -101,26 +89,49 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(
   );
 });
 
-export default function TreePanel() {
-  const { data, isLoading } = useGetTreeQuery();
-  if (!data) return null;
+export default function FavoritePanel() {
+  const { data: favorites } = useGetFavoritesQuery();
+  const dispatch = useAppDispatch();
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+  const favoriteItems = useMemo(() => {
+    if (!favorites) return [];
+    return [
+      {
+        id: "favorites",
+        itemType: "directory",
+        label: "Favorites",
+        children: favorites.map((f) => {
+          return {
+            id: f,
+            itemType: "file", // Assuming favorites are files
+            label: f, // Placeholder label
+          };
+        }),
+      },
+    ];
+  }, [favorites]);
+
+  const handleSelectFavorites = useCallback(() => {
+    if (favorites && favorites.length > 0) {
+      dispatch(setVideos(favorites));
+      dispatch(setCurrentVideo(favorites[0]));
+    } else {
+      console.warn("No favorites available");
+    }
+  }, [dispatch, favorites]);
+
+  if (!favorites) return null;
 
   return (
     <>
-      <FavoritePanel />
       <RichTreeView
         sx={{
           width: "100%",
-          height: 500,
           overflow: "auto",
           flexGrow: 1,
           flexShrink: 0,
         }}
-        items={data}
+        items={favoriteItems}
         slots={{ item: CustomTreeItem }}
       />
     </>

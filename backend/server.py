@@ -3,19 +3,18 @@ import random
 import json
 import mimetypes
 from flask import Flask, Response, request, abort, send_file, jsonify, render_template
-from flask import current_app as app
 from flask_cors import CORS
 
 
 app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent / "dist" / "assets"),
             template_folder=str(Path(__file__).resolve().parent.parent / "dist"))
-print(f"Static folder: {app.static_folder}")
-print(f"Template folder: {app.template_folder}")
 CORS(app)
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
-VIDEO_DIR = Path("/media/yuki/DATA/skr/movie/")  # Change this to your video directory
+# Change this to your video directory
+VIDEO_DIR = PROJECT_ROOT / "sample_videos"
+
 
 METADATA_DIR = PROJECT_ROOT / "metadata"
 METADATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -63,6 +62,7 @@ def get_tree():
 
 @app.route('/api/videos')
 def list_videos():
+    print("Listing videos in directory:", request.args.get("directory"))
     directory = request.args.get("directory")
     try:
         video_files = [str(f.relative_to(VIDEO_DIR)) for f in Path(
@@ -71,6 +71,7 @@ def list_videos():
         return video_files
     except FileNotFoundError:
         abort(404, description="Video directory not found.")
+
 
 @app.route('/api/favorites')
 def list_favorites():
@@ -85,6 +86,7 @@ def list_favorites():
         return jsonify(sorted(favorites))
     except json.JSONDecodeError:
         abort(500, description="Error decoding favorites JSON.")
+
 
 @app.route('/api/favorites/<path:filename>')
 def toggle_favorites(filename):
@@ -104,7 +106,8 @@ def toggle_favorites(filename):
         return jsonify(favorites)
     except json.JSONDecodeError:
         abort(500, description="Error decoding favorites JSON.")
-        
+
+
 @app.route("/api/video/metadata/<path:filename>")
 def get_video_metadata(filename):
     metadata_file = METADATA_DIR / f"{filename}.json"
